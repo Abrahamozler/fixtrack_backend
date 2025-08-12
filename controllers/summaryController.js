@@ -1,54 +1,80 @@
 const Record = require('../models/recordModel.js');
 
-const getCollectionForPeriod = async (startDate, endDate = new Date()) => {
-  const result = await Record.aggregate([
-    { $match: { paymentStatus: 'Paid', createdAt: { $gte: startDate, $lt: endDate } } },
-    { $group: { _id: null, total: { $sum: '$totalPrice' } } },
-  ]);
-  return result.length > 0 ? result[0].total : 0;
-};
+// This helper function is now simpler and correct.
+const getStatsForPeriod = async (startDate) => {
+    const matchQuery = { paymentStatus: 'Paid' };
+    if (startDate) {
+        matchQuery.createdAt = { $gte: startDate };
+    }
 
-const getProfitForPeriod = async (startDate, endDate = new Date()) => {
-    const records = await Record.find({ paymentStatus: 'Paid', createdAt: { $gte: startDate, $lt: endDate } });
-    let totalProfitWithParts = 0;
-    let totalProfitWithoutParts = 0;
-    records.forEach(record => {
-        const sparePartsCost = record.spareParts.reduce((acc, part) => acc + part.price, 0);
-        totalProfitWithParts += (record.totalPrice - sparePartsCost);
-        totalProfitWithoutParts += record.serviceCharge;
-    });
-    return { withParts: totalProfitWithParts, withoutParts: totalProfitWithoutParts };
+    const stats = await Record.aggregate([
+        { $match: matchQuery },
+        {
+            $group: {
+                _id: null,
+                totalCollections: { $sum: '$totalPrice' },
+                totalServiceCharge: { $sum: '$serviceCharge' },
+                totalSparePartsCost: { $sum: { $sum: '$spareParts.price' } }
+            }
+        }
+    ]);
+
+    if (stats.length === 0) {
+        return { collections: 0, profit: { withParts: 0, withoutParts: 0 } };
+    }
+
+    const { totalCollections, totalServiceCharge, totalSparePartsCost } = stats[0];
+    const profitWithParts = totalCollections - totalSparePartsCost;
+    
+    return {
+        collections: totalCollections,
+        profit: { withParts: profitWithParts, withoutParts: totalServiceCharge }
+    };
 };
 
 const getMonthlyEarningsTrend = async () => {
-    // ... (This function remains the same and is correct) ...
+    const result = await Record.aggregate([
+        { $match: { paymentStatus: 'Paid' } },
+        {
+            $group: {
+                _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+                earnings: { $sum: "$totalPrice" }
+            }
+        },
+        { $sort: { "_id.year": -1, "_id.month": -1 } },
+        { $limit: 12 }
+    ]);
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return result.reverse().map(item => ({
+        name: `${monthNames[item._id.month - 1]} '${String(item._id.year).slice(2)}`,
+        earnings: item.earnings
+    }));
 };
 
 const getFinancialSummary = async (req, res) => {
   try {
-    // THIS IS THE CORRECTED LOGIC
     const now = new Date();
-    // Use new Date() for each calculation to avoid mutation
     const startOfToday = new Date(new Date().setHours(0, 0, 0, 0));
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-    const dailyCollections = await getCollectionForPeriod(startOfToday);
-    const monthlyCollections = await getCollectionForPeriod(startOfMonth);
-    const yearlyCollections = await getCollectionForPeriod(startOfYear);
-
-    const dailyProfit = await getProfitForPeriod(startOfToday);
-    const monthlyProfit = await getProfitForPeriod(startOfMonth);
-    const yearlyProfit = await getProfitForPeriod(startOfYear);
+    const dailyStats = await getStatsForPeriod(startOfToday);
+    const monthlyStats = await getStatsForPeriod(startOfMonth);
+    const yearlyStats = await getStatsForPeriod(startOfYear);
     
     const earningsTrend = await getMonthlyEarningsTrend();
 
     res.json({
-      dailyCollections, monthlyCollections, yearlyCollections,
-      dailyProfit, monthlyProfit, yearlyProfit,
+      dailyCollections: dailyStats.collections,
+      monthlyCollections: monthlyStats.collections,
+      yearlyCollections: yearlyStats.collections,
+      dailyProfit: dailyStats.profit,
+      monthlyProfit: monthlyStats.profit,
+      yearlyProfit: yearlyStats.profit, // Added yearly profit for consistency
       earningsTrend,
     });
   } catch (error) {
+    console.error("Summary Controller Error:", error);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
