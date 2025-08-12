@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { getFinancialSummary } = require('../controllers/summaryController');
-const { protect, admin } = require('../middleware/authMiddleware');
+// Corrected Path: ../controllers/ not ../src/controllers/
+const { getFinancialSummary } = require('../controllers/summaryController.js');
+const { protect, admin } = require('../middleware/authMiddleware.js');
 
-router.get('/', protect, admin, getFinancialSummary);
+router.route('/').get(protect, admin, getFinancialSummary);
 
 module.exports = router;
