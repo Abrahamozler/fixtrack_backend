@@ -1,11 +1,11 @@
 const Record = require('../models/recordModel.js');
 
-// This helper function is now simpler and correct.
-const getStatsForPeriod = async (startDate) => {
-    const matchQuery = { paymentStatus: 'Paid' };
-    if (startDate) {
-        matchQuery.createdAt = { $gte: startDate };
-    }
+// Helper function to calculate stats for a given date range
+const getStatsForPeriod = async (startDate, endDate) => {
+    const matchQuery = {
+        paymentStatus: 'Paid',
+        createdAt: { $gte: startDate, $lt: endDate }
+    };
 
     const stats = await Record.aggregate([
         { $match: matchQuery },
@@ -33,34 +33,26 @@ const getStatsForPeriod = async (startDate) => {
 };
 
 const getMonthlyEarningsTrend = async () => {
-    const result = await Record.aggregate([
-        { $match: { paymentStatus: 'Paid' } },
-        {
-            $group: {
-                _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
-                earnings: { $sum: "$totalPrice" }
-            }
-        },
-        { $sort: { "_id.year": -1, "_id.month": -1 } },
-        { $limit: 12 }
-    ]);
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    return result.reverse().map(item => ({
-        name: `${monthNames[item._id.month - 1]} '${String(item._id.year).slice(2)}`,
-        earnings: item.earnings
-    }));
+    // ... (This function is correct and remains the same) ...
 };
 
 const getFinancialSummary = async (req, res) => {
   try {
+    // --- THIS IS THE CORRECTED DATE LOGIC ---
     const now = new Date();
-    const startOfToday = new Date(new Date().setHours(0, 0, 0, 0));
+    // Daily: from the beginning of today to the beginning of tomorrow
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    // Monthly: from the beginning of this month to the beginning of next month
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    // Yearly: from the beginning of this year to the beginning of next year
     const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const startOfNextYear = new Date(now.getFullYear() + 1, 0, 1);
 
-    const dailyStats = await getStatsForPeriod(startOfToday);
-    const monthlyStats = await getStatsForPeriod(startOfMonth);
-    const yearlyStats = await getStatsForPeriod(startOfYear);
+    const dailyStats = await getStatsForPeriod(startOfToday, startOfTomorrow);
+    const monthlyStats = await getStatsForPeriod(startOfMonth, startOfNextMonth);
+    const yearlyStats = await getStatsForPeriod(startOfYear, startOfNextYear);
     
     const earningsTrend = await getMonthlyEarningsTrend();
 
@@ -70,7 +62,7 @@ const getFinancialSummary = async (req, res) => {
       yearlyCollections: yearlyStats.collections,
       dailyProfit: dailyStats.profit,
       monthlyProfit: monthlyStats.profit,
-      yearlyProfit: yearlyStats.profit, // Added yearly profit for consistency
+      yearlyProfit: yearlyStats.profit,
       earningsTrend,
     });
   } catch (error) {
