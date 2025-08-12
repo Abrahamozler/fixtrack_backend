@@ -7,10 +7,11 @@ const {
   updateRecord,
   deleteRecord,
   exportExcel,
-  exportPdf
-} = require('../controllers/recordController');
-const { protect, admin } = require('../middleware/authMiddleware');
-const upload = require('../utils/fileUpload');
+  exportPdf,
+  generateInvoicePdf // Import the new function
+} = require('../controllers/recordController.js');
+const { protect, admin } = require('../middleware/authMiddleware.js');
+const upload = require('../utils/fileUpload.js');
 
 const uploader = upload.fields([
   { name: 'beforePhoto', maxCount: 1 },
@@ -23,6 +24,9 @@ router.route('/')
 
 router.get('/export/excel', protect, admin, exportExcel);
 router.get('/export/pdf', protect, admin, exportPdf);
+
+// NEW ROUTE: For generating a single invoice PDF
+router.get('/:id/invoice', protect, admin, generateInvoicePdf);
 
 router.route('/:id')
   .get(protect, getRecordById)
