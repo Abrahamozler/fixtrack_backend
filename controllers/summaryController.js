@@ -1,6 +1,6 @@
 const Record = require('../models/recordModel.js');
 
-// Helper function to calculate stats for a given date range
+// Helper function that now takes a start AND end date
 const getStatsForPeriod = async (startDate, endDate) => {
     const matchQuery = {
         paymentStatus: 'Paid',
@@ -38,21 +38,25 @@ const getMonthlyEarningsTrend = async () => {
 
 const getFinancialSummary = async (req, res) => {
   try {
-    // --- THIS IS THE CORRECTED DATE LOGIC ---
+    // --- THIS IS THE FINAL, CORRECTED DATE LOGIC ---
     const now = new Date();
-    // Daily: from the beginning of today to the beginning of tomorrow
+    
+    // Daily: from the start of today until the end of today
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    // Monthly: from the beginning of this month to the beginning of next month
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    // Yearly: from the beginning of this year to the beginning of next year
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const startOfNextYear = new Date(now.getFullYear() + 1, 0, 1);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
-    const dailyStats = await getStatsForPeriod(startOfToday, startOfTomorrow);
-    const monthlyStats = await getStatsForPeriod(startOfMonth, startOfNextMonth);
-    const yearlyStats = await getStatsForPeriod(startOfYear, startOfNextYear);
+    // Monthly: from the start of this month until the start of next month
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    
+    // Yearly: from the start of this year until the start of next year
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const endOfYear = new Date(now.getFullYear() + 1, 0, 1);
+
+    // Get stats for each distinct period
+    const dailyStats = await getStatsForPeriod(startOfToday, endOfToday);
+    const monthlyStats = await getStatsForPeriod(startOfMonth, endOfMonth);
+    const yearlyStats = await getStatsForPeriod(startOfYear, endOfYear);
     
     const earningsTrend = await getMonthlyEarningsTrend();
 
@@ -67,7 +71,7 @@ const getFinancialSummary = async (req, res) => {
     });
   } catch (error) {
     console.error("Summary Controller Error:", error);
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    res.status(500).json({ message: 'Server Error' });
   }
 };
 
