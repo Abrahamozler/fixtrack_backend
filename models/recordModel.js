@@ -1,3 +1,5 @@
+// --- File: models/recordModel.js ---
+
 const mongoose = require('mongoose');
 
 const sparePartSchema = new mongoose.Schema({
@@ -6,21 +8,24 @@ const sparePartSchema = new mongoose.Schema({
 });
 
 const recordSchema = new mongoose.Schema({
-  date: { type: Date, default: Date.now },
+  // --- FIX: Renamed 'date' to 'recordDate' for clarity and consistency ---
+  recordDate: { type: Date, default: Date.now },
   mobileModel: { type: String, required: true },
   customerName: { type: String, required: true },
-  customerPhone: { type: String, required: true },
+  // --- FIX: Customer phone is now optional, matching the frontend ---
+  customerPhone: { type: String, required: false },
   complaint: { type: String, required: true },
   spareParts: [sparePartSchema],
   serviceCharge: { type: Number, required: true, default: 0 },
-  totalPrice: { type: Number, required: true, default: 0 },
+  totalPrice: { type: Number, default: 0 }, // It will be calculated, so it doesn't need to be required here
   paymentStatus: { type: String, enum: ['Paid', 'Pending'], default: 'Pending' },
   beforePhoto: { url: String, public_id: String },
   afterPhoto: { url: String, public_id: String },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
-// Pre-save middleware to calculate total price
+// --- ENHANCEMENT: This is excellent logic. No changes needed. ---
+// Pre-save middleware to calculate total price automatically.
 recordSchema.pre('save', function(next) {
   const sparePartsTotal = this.spareParts.reduce((acc, part) => acc + part.price, 0);
   this.totalPrice = sparePartsTotal + this.serviceCharge;
