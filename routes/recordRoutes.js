@@ -6,9 +6,10 @@ const {
   createRecord,
   updateRecord,
   deleteRecord,
-  generateInvoicePdf,
-  getRecordStats
-} = require('../controllers/recordController.js'); // <-- FIX: Removed exportExcel and exportPdf from imports
+  exportExcel,
+  exportPdf,
+  generateInvoicePdf // Import the new function
+} = require('../controllers/recordController.js');
 const { protect, admin } = require('../middleware/authMiddleware.js');
 const upload = require('../utils/fileUpload.js');
 
@@ -21,12 +22,10 @@ router.route('/')
   .get(protect, getRecords)
   .post(protect, uploader, createRecord);
 
-router.route('/stats').get(protect, getRecordStats);
+router.get('/export/excel', protect, admin, exportExcel);
+router.get('/export/pdf', protect, admin, exportPdf);
 
-// --- FIX: Removed the routes that were causing the crash ---
-// router.get('/export/excel', protect, admin, exportExcel);
-// router.get('/export/pdf', protect, admin, exportPdf);
-
+// NEW ROUTE: For generating a single invoice PDF
 router.get('/:id/invoice', protect, admin, generateInvoicePdf);
 
 router.route('/:id')
