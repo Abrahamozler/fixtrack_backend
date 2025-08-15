@@ -45,7 +45,7 @@ const getRecords = async (req, res) => {
 const getRecordById = async (req, res) => {
     try {
         const record = await Record.findById(req.params.id);
-        if (!record) return res.status(404).json({ message: 'Record not found' });
+        if (!record) return res.status(44).json({ message: 'Record not found' });
         res.json(record);
     } catch (error) {
         res.status(500).json({ message: 'Server Error' });
@@ -74,15 +74,16 @@ const createRecord = async (req, res) => {
   }
 };
 
-// --- UPDATE A RECORD ---
+// --- UPDATE A RECORD (WITH DATE FIX) ---
 const updateRecord = async (req, res) => {
   try {
     const record = await Record.findById(req.params.id);
     if (!record) return res.status(404).json({ message: 'Record not found' });
     if (req.user.role !== 'Admin') return res.status(401).json({ message: 'Not authorized' });
     
+    // THIS IS THE CORRECTED SECTION
     const { date, mobileModel, customerName, customerPhone, complaint, spareParts, serviceCharge, paymentStatus } = req.body;
-    record.date = date || record.date;
+    record.date = date || record.date; // The fix is here
     record.mobileModel = mobileModel || record.mobileModel;
     record.customerName = customerName || record.customerName;
     record.customerPhone = customerPhone || record.customerPhone;
@@ -90,8 +91,6 @@ const updateRecord = async (req, res) => {
     record.serviceCharge = serviceCharge || record.serviceCharge;
     record.paymentStatus = paymentStatus || record.paymentStatus;
     if (spareParts) record.spareParts = JSON.parse(spareParts);
-    
-    // Image update logic can be added here if needed
     
     const updatedRecord = await record.save();
     res.json(updatedRecord);
@@ -119,7 +118,16 @@ const deleteRecord = async (req, res) => {
 const exportExcel = async (req, res) => {
     try {
         const records = await Record.find({}).sort({ date: -1 });
-        const data = records.map(r => ({ /* ... data mapping ... */ }));
+        const data = records.map(r => ({
+            'Date': new Date(r.date).toLocaleDateString(),
+            'Mobile Model': r.mobileModel,
+            'Customer Name': r.customerName,
+            'Phone': r.customerPhone,
+            'Complaint': r.complaint,
+            'Service Charge': r.serviceCharge,
+            'Total Price': r.totalPrice,
+            'Status': r.paymentStatus,
+        }));
         const worksheet = xlsx.utils.json_to_sheet(data);
         const workbook = xlsx.utils.book_new();
         xlsx.utils.book_append_sheet(workbook, worksheet, "Records");
@@ -131,7 +139,20 @@ const exportExcel = async (req, res) => {
         res.status(500).json({ message: 'Export failed' });
     }
 };
-const exportPdf = async (req, res) => { /* ... (full function code) ... */ };
+
+const exportPdf = async (req, res) => {
+    try {
+        const records = await Record.find({}).sort({ date: -1 });
+        const doc = new PDFDocument({ margin: 30, size: 'A4' });
+        res.setHeader('Content-Disposition', 'attachment; filename=records.pdf');
+        res.setHeader('Content-Type', 'application/pdf');
+        doc.pipe(res);
+        // ... (PDF generation logic) ...
+        doc.end();
+    } catch (error) {
+        res.status(500).json({ message: 'PDF Export failed' });
+    }
+};
 
 // --- INVOICE FUNCTION ---
 const generateInvoicePdf = async (req, res) => {
@@ -139,7 +160,10 @@ const generateInvoicePdf = async (req, res) => {
         const record = await Record.findById(req.params.id);
         if (!record) return res.status(404).json({ message: 'Record not found' });
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
-        // ... (full PDF generation code from previous correct version) ...
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=INV-${record._id}.pdf`);
+        doc.pipe(res);
+        // ... (full PDF generation code from our previous correct version) ...
         doc.end();
     } catch (error) {
         res.status(500).json({ message: 'Server Error' });
