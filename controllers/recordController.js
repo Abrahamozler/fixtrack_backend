@@ -159,3 +159,32 @@ module.exports = {
   exportPdf,
   generateInvoicePdf
 };
+
+
+// ... inside the createRecord function
+const createRecord = async (req, res) => {
+  // Add 'date' to this list
+  const {
+    date,
+    mobileModel,
+    customerName,
+    customerPhone,
+    complaint,
+    spareParts,
+    serviceCharge,
+    paymentStatus
+  } = req.body;
+
+  try {
+    const record = new Record({
+      date, // Add 'date' here
+      mobileModel,
+      customerName,
+      customerPhone,
+      // ... the rest of the fields remain the same
+    });
+    // ... the rest of the function remains the same
+  } catch (error) {
+    // ...
+  }
+};
