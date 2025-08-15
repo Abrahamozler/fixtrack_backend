@@ -1,42 +1,23 @@
 const Record = require('../models/recordModel.js');
 
-// Helper to get the start date based on a period string
-const getStartDate = (period) => {
-    const today = new Date();
-    switch (period) {
-        case 'daily':
-            return new Date(today.setHours(0, 0, 0, 0));
-        case 'weekly':
-            const startOfWeek = new Date(today);
-            startOfWeek.setDate(today.getDate() - 7);
-            return startOfWeek;
-        case 'monthly':
-            const startOfMonth = new Date(today);
-            startOfMonth.setMonth(today.getMonth() - 1);
-            return startOfMonth;
-        default: // 'all' or any other value
-            return null; // No start date means all time
-    }
-};
-
-// @desc    Get service analysis statistics
-// @route   GET /api/analysis
-// @access  Private/Admin
+// This controller now accepts startDate and endDate for precise filtering.
 const getServiceAnalysis = async (req, res) => {
     try {
-        const { period = 'all' } = req.query;
-        const startDate = getStartDate(period);
+        const { startDate, endDate } = req.query;
 
+        // Build the query based on the provided dates
         const matchQuery = { paymentStatus: 'Paid' };
-        if (startDate) {
-            matchQuery.createdAt = { $gte: startDate };
+        if (startDate && endDate) {
+            const endOfDay = new Date(endDate);
+            endOfDay.setHours(23, 59, 59, 999); // Include the entire end day
+            matchQuery.createdAt = { $gte: new Date(startDate), $lte: endOfDay };
         }
 
         const analysis = await Record.aggregate([
             { $match: matchQuery },
             {
                 $group: {
-                    _id: null, // Group all documents into a single result
+                    _id: null,
                     totalRepairs: { $sum: 1 },
                     totalIncome: { $sum: '$totalPrice' },
                     totalSparePartsCost: { $sum: { $sum: '$spareParts.price' } }
@@ -53,7 +34,6 @@ const getServiceAnalysis = async (req, res) => {
             }
         ]);
 
-        // If no records found, return a default object
         const result = analysis[0] || {
             totalRepairs: 0,
             totalIncome: 0,
