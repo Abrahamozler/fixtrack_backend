@@ -1,10 +1,11 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { registerUser, loginUser, getUserProfile } = require('../controllers/authController');
-const { protect } = require('../middleware/authMiddleware');
+const { registerUser, loginUser } = require("../controllers/authController");
 
-router.post('/register', registerUser);
-router.post('/login', loginUser);
-router.get('/profile', protect, getUserProfile);
+// Register new user (first user = Admin, others need referral code)
+router.post("/register", registerUser);
+
+// Login existing user
+router.post("/login", loginUser);
 
 module.exports = router;
