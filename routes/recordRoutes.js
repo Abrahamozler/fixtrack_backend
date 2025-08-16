@@ -8,26 +8,32 @@ const {
   deleteRecord,
   exportExcel,
   exportPdf,
-  generateInvoicePdf // Import the new function
+  generateInvoicePdf,
 } = require('../controllers/recordController.js');
 const { protect, admin } = require('../middleware/authMiddleware.js');
 const upload = require('../utils/fileUpload.js');
 
+// Multer uploader (handles before/after photos)
 const uploader = upload.fields([
   { name: 'beforePhoto', maxCount: 1 },
-  { name: 'afterPhoto', maxCount: 1 }
+  { name: 'afterPhoto', maxCount: 1 },
 ]);
 
+// --- Routes ---
+
+// ✅ Get all records / Create new record
 router.route('/')
   .get(protect, getRecords)
   .post(protect, uploader, createRecord);
 
+// ✅ Export routes
 router.get('/export/excel', protect, admin, exportExcel);
 router.get('/export/pdf', protect, admin, exportPdf);
 
-// NEW ROUTE: For generating a single invoice PDF
+// ✅ Single invoice PDF
 router.get('/:id/invoice', protect, admin, generateInvoicePdf);
 
+// ✅ Single record operations
 router.route('/:id')
   .get(protect, getRecordById)
   .put(protect, admin, uploader, updateRecord)
