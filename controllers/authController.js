@@ -5,72 +5,53 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// @desc    Register a new user (first user is Admin)
-// @route   POST /api/auth/register
-// @access  Public
-const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-  const userExists = await User.findOne({ email });
+// ... (keep imports for User, jwt) ...
+const Settings = require('../models/settingsModel.js'); // Add this new import
 
+const registerUser = async (req, res) => {
+  const { username, password, referralCode } = req.body;
+
+  // First, check if username already exists
+  const userExists = await User.findOne({ username });
   if (userExists) {
-    return res.status(400).json({ message: 'User already exists' });
+    return res.status(400).json({ message: 'Username is already taken' });
   }
 
-  // First user to register becomes an Admin
+  // The very first user to ever register becomes Admin, no referral code needed
   const isFirstAccount = (await User.countDocuments({})) === 0;
-  const role = isFirstAccount ? 'Admin' : 'Staff';
+  if (isFirstAccount) {
+    const adminUser = await User.create({ username, password, role: 'Admin' });
+    // Also create the default settings document
+    await Settings.create({ staffReferralCode: 'PLEASE-UPDATE-ME' });
+    return res.status(201).json({ /* ... admin user data ... */ });
+  }
 
-  const user = await User.create({ name, email, password, role });
+  // For all subsequent registrations, a referral code is required
+  if (!referralCode) {
+    return res.status(400).json({ message: 'A referral code is required to register' });
+  }
 
-  if (user) {
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      token: generateToken(user._id),
-    });
+  // Check if the provided referral code is correct
+  const appSettings = await Settings.findOne({ key: 'app-settings' });
+  if (!appSettings || referralCode !== appSettings.staffReferralCode) {
+    return res.status(401).json({ message: 'Invalid referral code' });
+  }
+
+  // If code is correct, create a Staff user
+  const staffUser = await User.create({ username, password, role: 'Staff' });
+  if (staffUser) {
+    res.status(201).json({ /* ... staff user data ... */ });
   } else {
     res.status(400).json({ message: 'Invalid user data' });
   }
 };
 
-// @desc    Auth user & get token
-// @route   POST /api/auth/login
-// @access  Public
 const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findOne({ email });
-
+  const { username, password } = req.body; // Login with username now
+  const user = await User.findOne({ username });
   if (user && (await user.matchPassword(password))) {
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      token: generateToken(user._id),
-    });
+    res.json({ _id: user._id, username: user.username, role: user.role, token: generateToken(user._id) });
   } else {
-    res.status(401).json({ message: 'Invalid email or password' });
+    res.status(401).json({ message: 'Invalid username or password' });
   }
 };
-
-// @desc    Get user profile
-// @route   GET /api/auth/profile
-// @access  Private
-const getUserProfile = async (req, res) => {
-    const user = await User.findById(req.user._id);
-
-    if (user) {
-        res.json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-        });
-    } else {
-        res.status(404).json({ message: 'User not found' });
-    }
-};
-
-module.exports = { registerUser, loginUser, getUserProfile };
