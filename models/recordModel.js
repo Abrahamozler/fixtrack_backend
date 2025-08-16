@@ -9,7 +9,7 @@ const recordSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now },
   mobileModel: { type: String, required: true },
   customerName: { type: String, required: true },
-  customerPhone: { type: String, required: true },
+  customerPhone: { type: String }, // ✅ made optional
   complaint: { type: String, required: true },
   spareParts: [sparePartSchema],
   serviceCharge: { type: Number, required: true, default: 0 },
