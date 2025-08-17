@@ -1,9 +1,7 @@
 const User = require("../models/userModel");
+const Settings = require("../models/settingsModel");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-
-// Hardcode / env configure your referral code
-const VALID_REFERRAL_CODE = process.env.REFERRAL_CODE || "8129";
 
 // Generate JWT
 const generateToken = (id, role) => {
@@ -12,7 +10,7 @@ const generateToken = (id, role) => {
   });
 };
 
-// @desc    Register a new user (with referral code)
+// @desc    Register a new user (with dynamic referral code)
 const registerUser = async (req, res) => {
   try {
     const { username, password, referralCode, role } = req.body;
@@ -20,6 +18,10 @@ const registerUser = async (req, res) => {
     if (!username || !password || !referralCode) {
       return res.status(400).json({ message: "Please provide all fields" });
     }
+
+    // Fetch current referral code from Settings
+    const settings = await Settings.findOne({ key: 'app-settings' });
+    const VALID_REFERRAL_CODE = settings?.staffReferralCode || "DEFAULT-CODE";
 
     if (referralCode !== VALID_REFERRAL_CODE) {
       return res.status(400).json({ message: "Invalid referral code" });
@@ -47,6 +49,7 @@ const registerUser = async (req, res) => {
       token: generateToken(user.id, user.role),
     });
   } catch (error) {
+    console.error("Register error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -69,6 +72,7 @@ const loginUser = async (req, res) => {
       res.status(401).json({ message: "Invalid username or password" });
     }
   } catch (error) {
+    console.error("Login error:", error);
     res.status(500).json({ message: error.message });
   }
 };
