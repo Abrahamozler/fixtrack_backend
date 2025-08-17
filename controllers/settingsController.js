@@ -1,18 +1,33 @@
 const Settings = require('../models/settingsModel.js');
 
 const getSettings = async (req, res) => {
-    const settings = await Settings.findOne({ key: 'app-settings' });
-    res.json(settings);
+    try {
+        let settings = await Settings.findOne({ key: 'app-settings' });
+        if (!settings) {
+            settings = await Settings.create({});
+        }
+        res.json(settings);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to fetch settings' });
+    }
 };
 
 const updateSettings = async (req, res) => {
-    const { staffReferralCode } = req.body;
-    const settings = await Settings.findOneAndUpdate(
-        { key: 'app-settings' },
-        { staffReferralCode },
-        { new: true, upsert: true } // upsert: create if it doesn't exist
-    );
-    res.json(settings);
+    try {
+        const { staffReferralCode } = req.body;
+        if (!staffReferralCode) return res.status(400).json({ message: 'Referral code is required' });
+
+        const settings = await Settings.findOneAndUpdate(
+            { key: 'app-settings' },
+            { staffReferralCode },
+            { new: true, upsert: true }
+        );
+        res.json(settings);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to update settings' });
+    }
 };
 
 module.exports = { getSettings, updateSettings };
